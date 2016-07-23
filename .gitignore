@@ -6,6 +6,9 @@ __pycache__/
 # C extensions
 *.so
 
+# Run scripts
+run*.sh
+
 # Distribution / packaging
 .Python
 env/

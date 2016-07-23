@@ -12,6 +12,7 @@ class SeenFortWorker(object):
         self.config = bot.config
         self.item_list = bot.item_list
         self.rest_time = 50
+        self.ballstock = bot.ballstock
     def walking_hook(own,i):
         print '\ranother walking_hook ',i, 
     def work(self):
@@ -35,6 +36,11 @@ class SeenFortWorker(object):
 
         self.api.fort_details(fort_id=self.fort['id'], latitude=position[0], longitude=position[1])
         response_dict = self.api.call()
+        
+        if 'responses' not in response_dict or \
+            'FORT_DETAILS' not in response_dict['responses']:
+            return 0
+
         fort_details = response_dict['responses']['FORT_DETAILS']
         print('Now at Pokestop: ' + fort_details['name'] + ' - Spinning...')
         time.sleep(2)
@@ -53,9 +59,14 @@ class SeenFortWorker(object):
                 items_awarded = spin_details.get('items_awarded', False)
                 if items_awarded:
                     for item in items_awarded:
-                        item_id = str(item['item_id'])
+                        int_id = item['item_id']
+                        item_id = str(int_id)
                         item_name = self.item_list[item_id]
                         print("- " + str(item['item_count']) + "x " + item_name)
+                        # Jack fix: update the ball inventory!!!
+                        if int_id < 4 and int_id > 0:
+                            # print "[#] Jack updating pokeballs ..."
+                            self.ballstock[int_id] += item['item_count']
                 else:
                     print("- Nothing found.")
 
@@ -65,15 +76,18 @@ class SeenFortWorker(object):
                     print '- PokeStop on cooldown. Time left: %s seconds.' % str((pokestop_cooldown/1000) - seconds_since_epoch)
 
                 if not items_awarded and not experience_awarded and not pokestop_cooldown:
-                    message = (
-                        'Stopped at Pokestop and did not find experience, items '
-                        'or information about the stop cooldown. You are '
-                        'probably softbanned. Try to play on your phone, '
-                        'if pokemons always ran away and you find nothing in '
-                        'PokeStops you are indeed softbanned. Please try again '
-                        'in a few hours.'
-                    )
-                    raise RuntimeError(message)
+                    print "Jack something went wrong at pokestop...might be banned...chill out for a bit"
+                    # sleep(10)
+                    return 11
+                    # message = (
+                    #     'Stopped at Pokestop and did not find experience, items '
+                    #     'or information about the stop cooldown. You are '
+                    #     'probably softbanned. Try to play on your phone, '
+                    #     'if pokemons always ran away and you find nothing in '
+                    #     'PokeStops you are indeed softbanned. Please try again '
+                    #     'in a few hours.'
+                    # )
+                    # raise RuntimeError(message)
             elif spin_details['result'] == 2:
                 print("- Pokestop out of range")
             elif spin_details['result'] == 3:

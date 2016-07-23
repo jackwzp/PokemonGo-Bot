@@ -19,7 +19,13 @@ class PokemonGoBot(object):
         self.config = config
         self.pokemon_list=json.load(open(os.path.dirname(__file__) + '/pokemon.json'))
         self.item_list=json.load(open(os.path.dirname(__file__)    + '/items.json'))
-        self.noballs = False
+        self.noballs = False        
+        self.jack_pokemon_list = self._init_jack_list()
+
+    def _init_jack_list(self):
+        with open(os.path.dirname(__file__) + '/jack_poke_list') as f:
+            lines = f.read().splitlines()
+        return lines
 
     def start(self):
         self._setup_logging()
@@ -34,36 +40,67 @@ class PokemonGoBot(object):
         self.stepper.take_step()
 
     def work_on_cell(self, cell, position):
-        if 'catchable_pokemons' in cell:
-            print '[#] Something rustles nearby!'
-            for pokemon in cell['catchable_pokemons']:
-                worker = PokemonCatchWorker(pokemon, self)
-                worker.work()
-        if 'wild_pokemons' in cell:
+        jack_want_list = {}
+        shitty_pokemons = {}
+        
+        if 'wild_pokemons' in cell:          
             for pokemon in cell['wild_pokemons']:
-                worker = PokemonCatchWorker(pokemon, self)
-                worker.work()
+                pokemon_num = int(pokemon['pokemon_data']['pokemon_id'])-1
+                pokemon_name=self.pokemon_list[int(pokemon_num)]['Name']
+                if pokemon_name in self.jack_pokemon_list:
+                    jack_want_list[pokemon_name] = pokemon
+                    # worker = PokemonCatchWorker(pokemon, self)
+                    # worker.work()
+                else:
+                    shitty_pokemons[pokemon_name] = pokemon
 
-        # After [self.noballs = True] and first spining, check if 50 pokeballs was gathered, if so stop spining
-        if self.noballs and self.ballstock[1] >= 50:
-            print ('[#] Gathered 50/50 pokeballs, continue catching!')
-            self.noballs = False
-        elif self.noballs and self.ballstock[1] < 50:
-            print ('[#] Gathered ' + str(self.ballstock[1]) + '/50 pokeballs, continue farming...')
+        if 'catchable_pokemons' in cell:
+            for pokemon in cell['catchable_pokemons']:
+                pokemon_num = int(pokemon['pokemon_id'])-1
+                pokemon_name=self.pokemon_list[int(pokemon_num)]['Name']
+                if pokemon_name in self.jack_pokemon_list:
+                    jack_want_list[pokemon_name] = pokemon
+                else:
+                    shitty_pokemons[pokemon_name] = pokemon
 
-        if self.config.spinstop or self.noballs:
+        for name, poke in jack_want_list.iteritems():
+            if self.ballstock[1] == 0:
+                break
+            print "[#] Jack found {} ... lets get it! ({} pokeballs)".format(name, str(self.ballstock[1]))
+            worker = PokemonCatchWorker(poke, self)
+            worker.work()
+            
+
+        for name, poke in shitty_pokemons.iteritems():
+            if self.ballstock[1] == 0:
+                break
+            print "[#] Jack shitty {} ... get it for xp points. ({} pokeballs)".format(name, str(self.ballstock[1]))
+            worker = PokemonCatchWorker(poke, self)
+            worker.work()
+        
+
+        # Visit pokestops
+        if self.config.spinstop or self.ballstock[1] == 0:
             if 'forts' in cell:
                 # Only include those with a lat/long
                 forts = [fort for fort in cell['forts'] if 'latitude' in fort and 'type' in fort]
 
                 # Sort all by distance from current pos- eventually this should build graph & A* it
                 forts.sort(key=lambda x: distance(self.position[0], self.position[1], fort['latitude'], fort['longitude']))
-                for fort in cell['forts']:
+                for fort in forts:                    
                     worker = SeenFortWorker(fort, self)
                     hack_chain = worker.work()
+                    # Chill out with visiting too many pokestops, can get banned
+                    if self.ballstock[1] > 0:
+                        break
                     if hack_chain > 10:
                         print('[-] Anti-ban resting....')
+                        if self.ballstock[1] == 0:
+                            print "[-] Sleep for 5 min before getting more balls..."
+                            time.sleep(300)
                         break
+
+        print "==============================="
 
     def _setup_logging(self):
         self.log = logging.getLogger(__name__)
@@ -77,25 +114,14 @@ class PokemonGoBot(object):
         # log level for internal pgoapi class
         logging.getLogger("rpc_api").setLevel(logging.INFO)
 
-    def _setup_api(self):
-        # instantiate pgoapi
-        self.api = PGoApi()
-        # provide player position on the earth
-
-        self._set_starting_position()
-
-        if not self.api.login(self.config.auth_service, self.config.username, self.config.password):
-            print('Login Error, server busy')
-            exit(0)
-
-        # chain subrequests (methods) into one RPC call
-
-        # get player inventory call
+    def _get_inventory(self):
+                # get player inventory call
         # ----------------------
-        self.api.get_player().get_inventory()
+        self.api.get_inventory()
 
         inventory_req = self.api.call()
 
+        # print('Inventory dictionary: \n\r{}'.format(json.dumps(inventory_req, indent=2)))
         inventory_dict = inventory_req['responses']['GET_INVENTORY']['inventory_delta']['inventory_items']
 
         # get player balls stock
@@ -120,6 +146,9 @@ class PokemonGoBot(object):
 
         # get player pokemon[id] group by pokemon[pokemon_id]
         # ----------------------
+        # key is the pokemon_id and the value is a list of {"cp":<cp value>, "id", <unique id per pokemon>}
+        # sorted by cp values. This will be used to decide whether or not to transfer new caught pokemons
+        # or store them
         pokemon_stock = {}
 
         for pokemon in inventory_dict:
@@ -130,23 +159,26 @@ class PokemonGoBot(object):
                 #DEBUG - Hide
                 #print(str(id1))
                 if id1 not in pokemon_stock:
-                    pokemon_stock[id1] = {}
+                    pokemon_stock[id1] = []
                 #DEBUG - Hide
                 #print(str(id2))
-                pokemon_stock[id1].update({id3:id2})
+                pokemon_stock[id1].append({"cp":id3, "id":id2})
             except:
                 continue
 
         #DEBUG - Hide
-        #print pokemon_stock
+        # print pokemon_stock
 
-        for id in pokemon_stock:
-            #DEBUG - Hide
-            #print id
-            sorted_cp = pokemon_stock[id].keys()
-            if len(sorted_cp) > 1:
-                sorted_cp.sort()
-                sorted_cp.reverse()
+        # Sort the pokemons 
+        for elem in pokemon_stock:
+            sorted_cp = sorted(pokemon_stock[elem], key=lambda k: k['cp'])
+            # sorted_cp.reverse()
+            pokemon_stock[elem] = sorted_cp
+            # print sorted_cp
+            # sorted_cp = pokemon_stock[id].keys()            
+            # if len(sorted_cp) > 1:
+            #     sorted_cp.sort()
+            #     sorted_cp.reverse()
                 #DEBUG - Hide
                 #print sorted_cp
 
@@ -157,6 +189,26 @@ class PokemonGoBot(object):
                     #print pokemon_stock[id][sorted_cp[x]]
                     #self.api.release_pokemon(pokemon_id=pokemon_stock[id][sorted_cp[x]])
                     #response_dict = self.api.call()
+
+        self.pokemon_stock = pokemon_stock
+        # for elem in pokemon_stock:
+        # print pokemon_stock
+
+    def _setup_api(self):
+        # instantiate pgoapi
+        self.api = PGoApi()
+        # provide player position on the earth
+
+        self._set_starting_position()
+
+        if not self.api.login(self.config.auth_service, self.config.username, self.config.password):
+            print('Login Error, server busy')
+            exit(0)
+
+        # chain subrequests (methods) into one RPC call
+
+        # Jack extract getting inventory
+        self._get_inventory()
 
         # get player profile call
         # ----------------------
@@ -272,6 +324,7 @@ class PokemonGoBot(object):
         # Get contents of inventory
         self.api.get_inventory()
         response_dict = self.api.call()
+        #print('Response dictionary: \n\r{}'.format(json.dumps(response_dict, indent=2)))
         if 'responses' in response_dict:
             if 'GET_INVENTORY' in response_dict['responses']:
                 if 'inventory_delta' in response_dict['responses']['GET_INVENTORY']:

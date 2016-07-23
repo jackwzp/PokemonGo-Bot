@@ -14,7 +14,11 @@ class PokemonCatchWorker(object):
         self.item_list = bot.item_list
         self.inventory = bot.inventory
         self.ballstock = bot.ballstock
-        self.noballs = bot.noballs
+        self.jack_pokemon_list = bot.jack_pokemon_list
+        self.pokemon_stock = bot.pokemon_stock
+        self.transfer_id = 0
+
+
     def work(self):
         encounter_id = self.pokemon['encounter_id']
         spawnpoint_id = self.pokemon['spawnpoint_id']
@@ -51,6 +55,9 @@ class PokemonCatchWorker(object):
                                 pokemon_num=int(pokemon['pokemon_data']['pokemon_id'])-1
                                 pokemon_name=self.pokemon_list[int(pokemon_num)]['Name']
                                 print('[#] A Wild ' + str(pokemon_name) + ' appeared! [CP' + str(cp) + ']')
+                                # if pokemon_name not in self.jack_pokemon_list:
+                                #     print "[#] Fuck catching this stupid shit ... onto the next one"
+                                #     return
                         while(True):
                             id_list1 = self.count_pokemon_inventory()
                             
@@ -58,17 +65,20 @@ class PokemonCatchWorker(object):
                                 #DEBUG - Hide
                                 #print 'use Poke Ball'
                                 pokeball = 1
-                            else:
+                            # elif self.ballstock[2] > 0:
                                 #DEBUG - Hide
                                 #print 'no Poke Ball'
+                                # pokeball = 2
+                            else:
                                 pokeball = 0
                                 
-                            if cp > 200 and self.ballstock[2] > 0:
+                            use_great_ball = (cp > 300 and pokemon_name.lower() not in self.config.transfer_list) or pokemon_name in self.jack_pokemon_list
+                            if use_great_ball and self.ballstock[2] > 0:
                                 #DEBUG - Hide
                                 #print 'use Great Ball'
                                 pokeball = 2
                                 
-                            if cp > 400 and self.ballstock[3] > 0:
+                            if cp > 600 and pokemon_name.lower() not in self.config.transfer_list and self.ballstock[3] > 0:
                                 #DEBUG - Hide
                                 #print 'use Utra Ball'
                                 pokeball = 3
@@ -77,10 +87,9 @@ class PokemonCatchWorker(object):
                                 print('[x] Out of pokeballs...')
                                 # TODO: Begin searching for pokestops.
                                 print('[x] Farming pokeballs...')
-                                self.noballs = True
                                 break
                             
-                            print('[x] Using ' + self.item_list[str(pokeball)] + '...')
+                            print('[x] Using ' + self.item_list[str(pokeball)] + '...' + str(self.ballstock[pokeball]) + ' balls left.')
                             self.api.catch_pokemon(encounter_id = encounter_id,
                                 pokeball = pokeball,
                                 normalized_reticle_size = 1.950,
@@ -98,6 +107,7 @@ class PokemonCatchWorker(object):
                                 'responses' in response_dict and \
                                 'CATCH_POKEMON' in response_dict['responses'] and \
                                 'status' in response_dict['responses']['CATCH_POKEMON']:
+
                                 status = response_dict['responses']['CATCH_POKEMON']['status']
                                 if status is 2:
                                     print('[-] Attempted to capture ' + str(pokemon_name) + ' - failed.. trying again!')
@@ -106,53 +116,85 @@ class PokemonCatchWorker(object):
                                 if status is 3:
                                     print('[x] Oh no! ' + str(pokemon_name) + ' vanished! :(')
                                 if status is 1:
-                                    self.api.get_inventory()
-                                    response_dict = self.api.call()
-                                    if self.config.cp == "smart":
-                                        print('[x] Captured ' + str(pokemon_name) + '! [CP' + str(cp) + ']')
-                                        id_cp_tuples = self.get_id_cp_tuples_for_pokemonid(pokemon['pokemon_data']['pokemon_id'],response_dict)
-                                        print("[+] Found same pokemons with CPs " + str([x[1] for x in id_cp_tuples]))
-                                        prev_id, prev_cp = (0,0)
-                                        exchange_pid, exchange_cp = (0,0)
-                                        for id_cp in id_cp_tuples:
-                                            current_id,current_cp = id_cp
-                                            if current_cp <= prev_cp:
-                                                exchange_pid = current_id
-                                                exchange_cp = current_cp
-                                            elif prev_id != 0:
-                                                exchange_pid = prev_id
-                                                exchange_cp = prev_cp
-                                                prev_id,prev_cp = id_cp
-                                            else:
-                                                prev_id,prev_cp = id_cp
-                                            if exchange_cp != 0 and exchange_pid != 0:
-                                                print('[x] Exchanging ' + str(pokemon_name) + ' from inventory with ! [CP' + str(exchange_cp) + ']')
-                                                self.transfer_pokemon(exchange_pid)
-                                    elif self.should_transfer(cp,str(pokemon_name)):
-                                        print('[x] Captured ' + str(pokemon_name) + '! [CP' + str(cp) + '] - exchanging for candy')
-                                        id_list2 = self.count_pokemon_inventory()
+                                    # self.api.get_inventory()
+                                    # response_dict = self.api.call()
+                                    # # if self.config.cp == "smart":
+                                    #     print('[x] Captured ' + str(pokemon_name) + '! [CP' + str(cp) + ']')
+                                    #     id_cp_tuples = self.get_id_cp_tuples_for_pokemonid(pokemon['pokemon_data']['pokemon_id'],response_dict)
+                                    #     print("[+] Found same pokemons with CPs " + str([x[1] for x in id_cp_tuples]))
+                                    #     prev_id, prev_cp = (0,0)
+                                    #     exchange_pid, exchange_cp = (0,0)
+                                    #     for id_cp in id_cp_tuples:
+                                    #         current_id,current_cp = id_cp
+                                    #         if current_cp <= prev_cp:
+                                    #             exchange_pid = current_id
+                                    #             exchange_cp = current_cp
+                                    #         elif prev_id != 0:
+                                    #             exchange_pid = prev_id
+                                    #             exchange_cp = prev_cp
+                                    #             prev_id,prev_cp = id_cp
+                                    #         else:
+                                    #             prev_id,prev_cp = id_cp
+                                    #         if exchange_cp != 0 and exchange_pid != 0:
+                                    #             print('[x] Exchanging ' + str(pokemon_name) + ' from inventory with ! [CP' + str(exchange_cp) + ']')
+                                    #             self.transfer_pokemon(exchange_pid)
+                                    print('[x] Captured ' + str(pokemon_name) + '! [CP' + str(cp) + ']')
+                                    id_list2 = self.count_pokemon_inventory()
+                                    new_pokemon_unique_id = list(Set(id_list2) - Set(id_list1))[0]
+
+                                    if self.should_transfer(cp, new_pokemon_unique_id, pokemon_num+1):                                                                              
+                                        transfer_id = self.transfer_id if (self.transfer_id != 0) else new_pokemon_unique_id
+                                        print "[x] Exchanging candy ... new id: {} ... transfer id: {}".format(new_pokemon_unique_id, transfer_id)
                                         try:
                                             # Transfering Pokemon
-                                            self.transfer_pokemon(list(Set(id_list2) - Set(id_list1))[0])
+                                            self.transfer_pokemon(transfer_id)
                                         except:
                                             print('[###] Your inventory is full! Please manually delete some items.')
                                             break
-                                    else:
-                                        print('[x] Captured ' + str(pokemon_name) + '! [CP' + str(cp) + ']')
+                                    
                             break
         time.sleep(5)
 
-    def should_transfer(self, pokemon_cp,pokemon_name):
-         pokemon_name = pokemon_name.lower()
-         transfer_list  = self.config.transfer_list.lower()
-         try:
-             int_cp = int(self.config.cp)
-         except Exception, e:
-             int_cp = 0
-         if pokemon_cp < self.config.cp or pokemon_name in transfer_list:
-             return True
-         else:
-            return False
+    def should_transfer(self, pokemon_cp, unique_id, pokemon_id):
+         # name = pokemon_name
+         # pokemon_name = pokemon_name.lower()
+         # transfer_list  = self.config.transfer_list.lower()
+         self.transfer_id = 0
+
+         # try:
+         #     int_cp = int(self.config.cp)
+         # except Exception, e:
+         #     int_cp = 0
+
+         # If you already have the same pokemon, keep only x number of strongest cp copies
+         # based on the input command line arg self.config.duplicate (3 by default)
+         if pokemon_id in self.pokemon_stock:
+            exisiting_pokemon_list = self.pokemon_stock[pokemon_id]            
+            if len(exisiting_pokemon_list) < self.config.duplicate:
+                print "[#] Jack can hold {} duplicates...not transfering".format(self.config.duplicate)
+                return False
+            else:                
+                if pokemon_cp > exisiting_pokemon_list[0]['cp']:
+                    print "[#] Jack transfering a weaker version of this pokemon"
+                    print "[#] DEBUG: exisiting list: {}".format(self.pokemon_stock[pokemon_id])
+                    self.transfer_id = exisiting_pokemon_list[0]['id']
+                    exisiting_pokemon_list[0] = {"cp":pokemon_cp, "id":unique_id}
+                    self.pokemon_stock[pokemon_id] = sorted(exisiting_pokemon_list, key=lambda k: k['cp'])
+                    print "[#] DEBUG: new list: {}".format(self.pokemon_stock[pokemon_id])
+                else:
+                    print "[#] Jack already have enough of this pokemon...transferring"
+                return True
+
+         # Don't have the pokemon yet
+         print "[#] Jack don't have this pokemon yet...not transfering"
+         self.pokemon_stock[pokemon_id] = []
+         self.pokemon_stock[pokemon_id].append({"cp":pokemon_cp, "id":unique_id})
+         print "[#] DEBUG: added new list {}".format(self.pokemon_stock[pokemon_id])
+         return False
+         # if (pokemon_cp < self.config.cp or pokemon_name in transfer_list) and name not in self.jack_pokemon_list:
+         #     return True
+         # else:
+         #    return False
 
     def _transfer_low_cp_pokemon(self, value):
     	self.api.get_inventory()
