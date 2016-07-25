@@ -158,12 +158,8 @@ class PokemonGoBot(object):
                 id1 = pokemon['inventory_item_data']['pokemon']['pokemon_id']
                 id2 = pokemon['inventory_item_data']['pokemon']['id']
                 id3 = pokemon['inventory_item_data']['pokemon']['cp']
-                #DEBUG - Hide
-                #print(str(id1))
                 if id1 not in pokemon_stock:
                     pokemon_stock[id1] = []
-                #DEBUG - Hide
-                #print(str(id2))
                 pokemon_stock[id1].append({"cp":id3, "id":id2})
             except:
                 continue
@@ -173,28 +169,25 @@ class PokemonGoBot(object):
 
         # Sort the pokemons 
         for elem in pokemon_stock:
-            sorted_cp = sorted(pokemon_stock[elem], key=lambda k: k['cp'])
-            # sorted_cp.reverse()
-            pokemon_stock[elem] = sorted_cp
-            # print sorted_cp
-            # sorted_cp = pokemon_stock[id].keys()            
-            # if len(sorted_cp) > 1:
-            #     sorted_cp.sort()
-            #     sorted_cp.reverse()
-                #DEBUG - Hide
-                #print sorted_cp
+            # Sort from lowest cp to highest (i.e list[0] is lowest cp)
+            sorted_cp = sorted(pokemon_stock[elem], key=lambda k: k['cp'])            
 
-                #Hide for now. If Unhide transfer all poke duplicates exept most CP.
-                #for x in range(1, len(sorted_cp)):
-                    #DEBUG - Hide
-                    #print x
-                    #print pokemon_stock[id][sorted_cp[x]]
-                    #self.api.release_pokemon(pokemon_id=pokemon_stock[id][sorted_cp[x]])
-                    #response_dict = self.api.call()
+            # Transfer duplicates if it is greater than the allowed amount of duplicates
+            num_elmem = len(sorted_cp)
+            if num_elmem > self.config.duplicate:
+                name = self.pokemon_list[int(elem)-1]['Name']
+                print "[#] Too many {}...keeping only {}.".format(name, self.config.duplicate)
+                # print "[#] \tDEBUG: initial {}".format(sorted_cp)
+                for x in xrange(num_elmem-self.config.duplicate):                                        
+                    drop_pokemon_id = sorted_cp.pop(0)['id']
+                    print "[#]\tTransfering...{}/{} (id:{})".format(x+1, num_elmem, drop_pokemon_id)
+                    # print "[#] \tDEBUG: {}".format(sorted_cp)
+                    self.api.release_pokemon(pokemon_id=drop_pokemon_id)
+                    response_dict = self.api.call()
+            pokemon_stock[elem] = sorted_cp
 
         self.pokemon_stock = pokemon_stock
-        # for elem in pokemon_stock:
-        # print pokemon_stock
+        # print self.pokemon_stock
 
     def _setup_api(self):
         # instantiate pgoapi
