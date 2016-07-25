@@ -142,7 +142,7 @@ class PokemonCatchWorker(object):
                                     id_list2 = self.count_pokemon_inventory()
                                     new_pokemon_unique_id = list(Set(id_list2) - Set(id_list1))[0]
 
-                                    if self.should_transfer(cp, new_pokemon_unique_id, pokemon_num+1):                                                                              
+                                    if self.should_transfer(cp, str(pokemon_name), new_pokemon_unique_id, pokemon_num+1):                                                                              
                                         transfer_id = self.transfer_id if (self.transfer_id != 0) else new_pokemon_unique_id
                                         print "[x] Exchanging candy ... new id: {} ... transfer id: {}".format(new_pokemon_unique_id, transfer_id)
                                         try:
@@ -155,11 +155,15 @@ class PokemonCatchWorker(object):
                             break
         time.sleep(5)
 
-    def should_transfer(self, pokemon_cp, unique_id, pokemon_id):
+    def should_transfer(self, pokemon_name, pokemon_cp, unique_id, pokemon_id):
          # name = pokemon_name
+         self.transfer_id = 0
          # pokemon_name = pokemon_name.lower()
          # transfer_list  = self.config.transfer_list.lower()
-         self.transfer_id = 0
+         
+         # Always transfer these shitty ones
+         # if pokemon_name in transfer_list:
+         #    return True
 
          # try:
          #     int_cp = int(self.config.cp)

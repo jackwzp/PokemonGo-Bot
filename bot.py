@@ -87,17 +87,19 @@ class PokemonGoBot(object):
 
                 # Sort all by distance from current pos- eventually this should build graph & A* it
                 forts.sort(key=lambda x: distance(self.position[0], self.position[1], fort['latitude'], fort['longitude']))
-                for fort in forts:                    
+                count = 0
+                for fort in forts:              
                     worker = SeenFortWorker(fort, self)
                     hack_chain = worker.work()
+                    count += 1
                     # Chill out with visiting too many pokestops, can get banned
-                    if self.ballstock[1] > 0:
+                    if count > 2 and self.ballstock[1] > 0:
                         break
                     if hack_chain > 10:
                         print('[-] Anti-ban resting....')
                         if self.ballstock[1] == 0:
-                            print "[-] Sleep for 5 min before getting more balls..."
-                            time.sleep(300)
+                            print "[-] Sleep for 2 min before getting more balls..."
+                            time.sleep(120)
                         break
 
         print "==============================="
