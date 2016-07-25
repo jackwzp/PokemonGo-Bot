@@ -173,14 +173,17 @@ class PokemonCatchWorker(object):
          # If you already have the same pokemon, keep only x number of strongest cp copies
          # based on the input command line arg self.config.duplicate (3 by default)
          if pokemon_id in self.pokemon_stock:
-            exisiting_pokemon_list = self.pokemon_stock[pokemon_id]            
+            exisiting_pokemon_list = self.pokemon_stock[pokemon_id]
+            print "[#] DEBUG: exisiting list: {}".format(exisiting_pokemon_list)            
             if len(exisiting_pokemon_list) < self.config.duplicate:
                 print "[#] Jack can hold {} duplicates...not transfering".format(self.config.duplicate)
+                exisiting_pokemon_list.append({"cp":pokemon_cp, "id":unique_id})
+                self.pokemon_stock[pokemon_id] = sorted(exisiting_pokemon_list, key=lambda k: k['cp'])
+                print "[#] DEBUG: updated list {}".format(self.pokemon_stock[pokemon_id])
                 return False
             else:                
                 if pokemon_cp > exisiting_pokemon_list[0]['cp']:
-                    print "[#] Jack transfering a weaker version of this pokemon"
-                    print "[#] DEBUG: exisiting list: {}".format(self.pokemon_stock[pokemon_id])
+                    print "[#] Jack transfering a weaker version of this pokemon"                    
                     self.transfer_id = exisiting_pokemon_list[0]['id']
                     exisiting_pokemon_list[0] = {"cp":pokemon_cp, "id":unique_id}
                     self.pokemon_stock[pokemon_id] = sorted(exisiting_pokemon_list, key=lambda k: k['cp'])
