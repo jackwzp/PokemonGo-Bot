@@ -67,6 +67,25 @@ class SeenFortWorker(object):
                         if int_id < 4 and int_id > 0:
                             # print "[#] Jack updating pokeballs ..."
                             self.ballstock[int_id] += item['item_count']
+                        else:
+                            # recycle these items to avoid full bag
+                            print "DEBUG: recycling item id = {}".format(int_id)
+                            self.api.recycle_inventory_item(item_id=int_id, count=item['item_count'])
+                            response_dict_recycle = self.api.call()
+
+                            if response_dict_recycle and \
+                                'responses' in response_dict_recycle and \
+                                'RECYCLE_INVENTORY_ITEM' in response_dict_recycle['responses'] and \
+                                    'result' in response_dict_recycle['responses']['RECYCLE_INVENTORY_ITEM']:
+                                result = response_dict_recycle['responses']['RECYCLE_INVENTORY_ITEM']['result']
+                                if result is 1:
+                                    print "DEBUG: recycled item success"
+                                else:
+                                    print "DEBUG: recycling failed"
+                            else:
+                                print "DEBUG: recycling no response"
+
+
                 else:
                     print("- Nothing found.")
 
