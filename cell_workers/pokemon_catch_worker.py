@@ -72,7 +72,8 @@ class PokemonCatchWorker(object):
                             else:
                                 pokeball = 0
                                 
-                            use_great_ball = (cp > 300 and pokemon_name.lower() not in self.config.transfer_list) or pokemon_name in self.jack_pokemon_list
+                            use_great_ball = (cp > 300 and pokemon_name.lower() not in self.config.transfer_list) or \
+                                (cp > 200 and pokemon_name in self.jack_pokemon_list)
                             if use_great_ball and self.ballstock[2] > 0:
                                 #DEBUG - Hide
                                 #print 'use Great Ball'
@@ -84,10 +85,14 @@ class PokemonCatchWorker(object):
                                 pokeball = 3
 
                             if pokeball is 0:
-                                print('[x] Out of pokeballs...')
-                                # TODO: Begin searching for pokestops.
-                                print('[x] Farming pokeballs...')
-                                break
+                                # Use great ball if we have more than 50
+                                if self.ballstock[2] > 50:
+                                    pokeball = 2
+                                else:
+                                    print('[x] Out of pokeballs...')
+                                    # TODO: Begin searching for pokestops.
+                                    print('[x] Farming pokeballs...')
+                                    break
                             
                             print('[x] Using ' + self.item_list[str(pokeball)] + '...' + str(self.ballstock[pokeball]) + ' balls left.')
                             self.api.catch_pokemon(encounter_id = encounter_id,
