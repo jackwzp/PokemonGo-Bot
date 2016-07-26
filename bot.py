@@ -119,7 +119,8 @@ class PokemonGoBot(object):
     def _get_inventory(self):
                 # get player inventory call
         # ----------------------
-        self.api.get_inventory()
+        # self.api.get_inventory()
+        self.api.get_player().get_inventory()
 
         inventory_req = self.api.call()
 
@@ -131,6 +132,7 @@ class PokemonGoBot(object):
         balls_stock = {1:0,2:0,3:0,4:0}
 
         for item in inventory_dict:
+            # print item
             try:
                 if item['inventory_item_data']['item']['item'] == 1:
                     #print('Poke Ball count: ' + str(item['inventory_item_data']['item']['count']))
