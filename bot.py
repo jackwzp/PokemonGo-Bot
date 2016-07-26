@@ -66,7 +66,7 @@ class PokemonGoBot(object):
         for name, poke in jack_want_list.iteritems():
             if self.ballstock[1] == 0:
                 break
-            print "[#] Jack found {} ... lets get it! ({} pokeballs)".format(name, str(self.ballstock[1]))
+            print "[#] Found super rare {} ... lets get it! ({} pokeballs)".format(name, str(self.ballstock[1]))
             worker = PokemonCatchWorker(poke, self)
             worker.work()
             
@@ -74,7 +74,7 @@ class PokemonGoBot(object):
         for name, poke in shitty_pokemons.iteritems():
             if self.ballstock[1] == 0:
                 break
-            print "[#] Jack shitty {} ... get it for xp points. ({} pokeballs)".format(name, str(self.ballstock[1]))
+            print "[#] Found pokemon {} ... get it for xp points. ({} pokeballs)".format(name, str(self.ballstock[1]))
             worker = PokemonCatchWorker(poke, self)
             worker.work()
         

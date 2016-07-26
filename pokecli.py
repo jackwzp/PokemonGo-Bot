@@ -67,7 +67,7 @@ def init_config():
 
     parser.add_argument("-d", "--debug", help="Debug Mode", action='store_true')
     parser.add_argument("-t", "--test", help="Only parse the specified location", action='store_true')
-    parser.add_argument("-tl", "--transfer_list", help="Transfer these pokemons regardless cp(pidgey,drowzee,rattata)", type=str, default='drowzee,rattata,metapod,kakuna,pidgeotto,spearow,zubat')
+    parser.add_argument("-tl", "--transfer_list", help="Transfer these pokemons regardless cp(pidgey,drowzee,rattata)", type=str, default='pidgey,pidgeot,pidgeotto,weedle,kakuna,beedrill,caterpie,metapod,butterfly,drowzee,hypno,rattata,raticate,spearow,fearow,zubat,golbat')
     parser.add_argument("-i", "--duplicate", help="Number of duplicate pokemon to keep", type=int, default=3)
     parser.set_defaults(DEBUG=False, TEST=False)
     config = parser.parse_args()
